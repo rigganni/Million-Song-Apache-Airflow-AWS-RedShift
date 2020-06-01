@@ -8,13 +8,10 @@ from airflow.operators import (StageToRedshiftOperator, LoadFactOperator,
 from helpers import SqlQueries
 import logging
 
-# AWS_KEY = os.environ.get('AWS_KEY')
-# AWS_SECRET = os.environ.get('AWS_SECRET')
-
 default_args = {
     'owner': 'sparkify',
     'start_date': datetime(2018, 11, 1),
-    'end_date': datetime(2018, 11, 10),
+    'end_date': datetime(2018, 11, 30),
     'email_on_retry': False,
     'depends_on_past': True,
     'retries': 3,
@@ -63,7 +60,8 @@ stage_songs_to_redshift = StageToRedshiftOperator(
     aws_credentials_id="aws_credentials",
     table="staging_songs",
     s3_bucket="udacity-dend",
-    s3_key="song_data/A/A/A"
+    #s3_key="song_data/A/A/A"
+    s3_key="song_data"
 )
 
 
@@ -116,9 +114,25 @@ load_time_dimension_table = LoadDimensionOperator(
     truncate_table=False
 )
 
+# Below is a list of SQL data quality checks to be performed
+dq_checks = [
+        {"description": "Check for NULL in users",
+         "check_sql": "SELECT COUNT(1) AS cnt FROM users WHERE userid IS NULL",
+         "expected_result": 0},
+        {"description": "Check for NULL in songs",
+         "check_sql": "SELECT COUNT(1) AS cnt FROM songs WHERE songid IS NULL",
+         "expected_result": 0},
+        {"description": "Ensure record count in songplays is less than or equal to staging_events record count",
+         "check_sql": "select (select count(1) from songplays) <= (select count(1) from staging_events);",
+         "expected_result": True}
+        ]
+
+logging.info("Run data quality checks")
 run_quality_checks = DataQualityOperator(
     task_id='Run_data_quality_checks',
-    dag=dag
+    dag=dag,
+    redshift_conn_id="redshift",
+    data_quality_checks=dq_checks
 )
 
 end_operator = DummyOperator(task_id='Stop_execution',  dag=dag)

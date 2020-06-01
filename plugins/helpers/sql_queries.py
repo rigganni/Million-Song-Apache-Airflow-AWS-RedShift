@@ -79,6 +79,7 @@ class SqlQueries:
         FROM staging_songs
         LEFT JOIN artists -- only add artists that do not already exist
           ON staging_songs.artist_id = artists.artistid
+        WHERE artists.artistid IS NULL
     """)
 
     time_table_insert = ("""
