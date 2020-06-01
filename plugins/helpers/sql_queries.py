@@ -1,5 +1,17 @@
 class SqlQueries:
     songplay_table_insert = ("""
+        INSERT INTO songplays(
+                              playid,
+                              start_time,
+                              userid,
+                              "level",
+                              songid,
+                              artistid,
+                              sessionid,
+                              location,
+                              user_agent
+                              )
+                              
         SELECT
                 md5(events.sessionid || events.start_time) songplay_id,
                 events.start_time, 
@@ -17,6 +29,10 @@ class SqlQueries:
             ON events.song = songs.title
                 AND events.artist = songs.artist_name
                 AND events.length = songs.duration
+            LEFT JOIN (SELECT playid -- do not insert records that already exist
+        FROM songplays) songplays
+            ON md5(events.sessionid || events.start_time) = songplays.playid
+            WHERE songplays.playid IS NULL
     """)
 
     user_table_insert = ("""
