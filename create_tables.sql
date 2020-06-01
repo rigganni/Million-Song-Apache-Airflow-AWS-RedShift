@@ -1,3 +1,7 @@
+CREATE TABLE IF NOT EXISTS public.files_loaded (
+	file_name varchar(256) PRIMARY KEY
+);
+
 CREATE TABLE IF NOT EXISTS public.artists (
 	artistid varchar(256) NOT NULL,
 	name varchar(256),
@@ -28,7 +32,6 @@ CREATE TABLE IF NOT EXISTS public.songs (
 	CONSTRAINT songs_pkey PRIMARY KEY (songid)
 );
 
-DROP TABLE IF EXISTS public.staging_events;
 CREATE TABLE IF NOT EXISTS public.staging_events (
 	artist varchar(256),
 	auth varchar(256),
@@ -50,7 +53,6 @@ CREATE TABLE IF NOT EXISTS public.staging_events (
 	userid int4
 );
 
-DROP TABLE IF EXISTS public.staging_songs;
 CREATE TABLE IF NOT EXISTS public.staging_songs (
 	num_songs int4,
 	artist_id varchar(256),

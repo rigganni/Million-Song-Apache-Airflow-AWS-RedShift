@@ -6,24 +6,32 @@ from airflow.operators import (StageToRedshiftOperator, LoadFactOperator,
                                 LoadDimensionOperator, DataQualityOperator,
                                 PostgresOperator)
 from helpers import SqlQueries
+import logging
 
 # AWS_KEY = os.environ.get('AWS_KEY')
 # AWS_SECRET = os.environ.get('AWS_SECRET')
 
 default_args = {
-    'owner': 'udacity',
+    'owner': 'sparkify',
     'start_date': datetime(2018, 11, 1),
     'end_date': datetime(2018, 11, 10),
-    'schedule_interval': '@daily'
+    'email_on_retry': False,
+    'depends_on_past': True,
+    'retries': 3,
+    'retry_delay': timedelta(minutes=5)
 }
 
-dag = DAG('udac_example_dag',
+dag = DAG('sparkify_etl_dag',
           default_args=default_args,
-          description='Load and transform data in Redshift with Airflow'
+          description='Load and transform data in Redshift with Airflow',
+          max_active_runs=1,
+          schedule_interval='@daily',
+          catchup=True
         )
 
 start_operator = DummyOperator(task_id='Begin_execution',  dag=dag)
 
+logging.info("Create Redshift tables")
 # Adapted from https://knowledge.udacity.com/questions/163614
 create_tables_task = PostgresOperator(
     task_id="create_tables",
@@ -33,7 +41,7 @@ create_tables_task = PostgresOperator(
     autocommit="True"
 )
 
-self.log.info("Load staging_events data from S3 to Redshift")
+logging.info("Load staging_events data from S3 to Redshift")
 stage_events_to_redshift = StageToRedshiftOperator(
     task_id='Stage_events',
     dag=dag,
@@ -46,15 +54,26 @@ stage_events_to_redshift = StageToRedshiftOperator(
     json_header="s3://udacity-dend/log_json_path.json"
 )
 
-self.log.info("Load staging_events data from S3 to Redshift")
+logging.info("Load staging_songs data from S3 to Redshift")
 stage_songs_to_redshift = StageToRedshiftOperator(
     task_id='Stage_songs',
-    dag=dag
+    dag=dag,
+    provide_context=True,
+    redshift_conn_id="redshift",
+    aws_credentials_id="aws_credentials",
+    table="staging_songs",
+    s3_bucket="udacity-dend",
+    s3_key="song_data/A/A/A"
 )
 
+
+logging.info("Load songplays table")
 load_songplays_table = LoadFactOperator(
     task_id='Load_songplays_fact_table',
-    dag=dag
+    dag=dag,
+    redshift_conn_id="redshift",
+    table="songplays",
+    sql_query=SqlQueries.songplay_table_insert
 )
 
 load_user_dimension_table = LoadDimensionOperator(

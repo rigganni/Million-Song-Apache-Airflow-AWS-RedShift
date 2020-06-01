@@ -23,7 +23,6 @@ class StageToRedshiftOperator(BaseOperator):
         self.s3_bucket = s3_bucket
         self.s3_key = s3_key
         self.aws_credentials_id = aws_credentials_id
-        self.log.info(aws_credentials_id)
         self.json_header = json_header
         self.copy_sql = """
                  COPY {}
@@ -46,11 +45,35 @@ class StageToRedshiftOperator(BaseOperator):
         self.log.info("Copying data from S3 to Redshift")
         rendered_key = self.s3_key.format(**context)
         s3_path = "s3://{}/{}".format(self.s3_bucket, rendered_key)
-        formatted_sql = self.copy_sql.format(
-            self.table,
-            s3_path,
-            credentials.access_key,
-            credentials.secret_key,
-            self.json_header
-        )
-        redshift.run(formatted_sql)
+
+        # Check if file already loaded
+        check_file_sql = """
+                 SELECT EXISTS(
+                 SELECT 1
+                 FROM files_loaded
+                 WHERE file_name = '{}'
+                 );
+                 """.format(s3_path)
+        file_exists = redshift.get_records(check_file_sql)[0][0]
+        self.log.info("File " + s3_path + " exists: " + str(file_exists))
+        if not file_exists:
+            try:
+                formatted_sql = self.copy_sql.format(
+                    self.table,
+                    s3_path,
+                    credentials.access_key,
+                    credentials.secret_key,
+                    self.json_header
+                )
+                redshift.run(formatted_sql)
+            except:
+                self.log.info("File " + s3_path + " could not be inserted into Redshift.")
+            else:
+                log_file_sql = """
+                         INSERT INTO files_loaded(file_name)
+                         VALUES('{}');
+                         """.format(s3_path)
+                redshift.run(log_file_sql)
+
+
+
