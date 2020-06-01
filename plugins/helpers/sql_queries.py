@@ -36,23 +36,70 @@ class SqlQueries:
     """)
 
     user_table_insert = ("""
-        SELECT distinct userid, firstname, lastname, gender, level
+        INSERT INTO users(
+                              userid,
+                              first_name,
+                              last_name,
+                              gender,
+                              "level"
+                              )
+        SELECT distinct staging_events.userid, firstname, lastname, staging_events.gender, staging_events.level
         FROM staging_events
+        LEFT JOIN users -- do not add user if already exists in users table
+          ON staging_events.userid = users.userid
         WHERE page='NextSong'
+              AND
+              users.userid IS NULL
     """)
 
     song_table_insert = ("""
-        SELECT distinct song_id, title, artist_id, year, duration
+        INSERT INTO songs(
+                              songid,
+                              title,
+                              artistid,
+                              year,
+                              duration
+                              )
+        SELECT distinct song_id, staging_songs.title, artist_id, staging_songs.year, staging_songs.duration
         FROM staging_songs
+        LEFT JOIN songs -- do not add songs that already exist
+          ON staging_songs.song_id = songs.songid
+        WHERE songs.songid IS NULL
     """)
 
     artist_table_insert = ("""
-        SELECT distinct artist_id, artist_name, artist_location, artist_latitude, artist_longitude
+        INSERT INTO artists(
+                              artistid,
+                              name,
+                              location,
+                              lattitude,
+                              longitude
+                              )
+        SELECT distinct artist_id, staging_songs.artist_name, staging_songs.artist_location, staging_songs.artist_latitude, staging_songs.artist_longitude
         FROM staging_songs
+        LEFT JOIN artists -- only add artists that do not already exist
+          ON staging_songs.artist_id = artists.artistid
     """)
 
     time_table_insert = ("""
-        SELECT start_time, extract(hour from start_time), extract(day from start_time), extract(week from start_time), 
-               extract(month from start_time), extract(year from start_time), extract(dayofweek from start_time)
+        INSERT INTO time(
+                              start_time,
+                              "hour",
+                              "day",
+                              week,
+                              "month",
+                              "year",
+                              weekday
+                              )
+        SELECT  songplays.start_time,
+                extract(hour from songplays.start_time),
+                extract(day from songplays.start_time),
+                extract(week from songplays.start_time),
+                extract(month from songplays.start_time),
+                extract(year from songplays.start_time),
+                extract(dayofweek from songplays.start_time)
         FROM songplays
+        LEFT JOIN time -- only add time values that do not already exist
+          on songplays.start_time = time.start_time
+        WHERE time.start_time IS NULL
     """)
